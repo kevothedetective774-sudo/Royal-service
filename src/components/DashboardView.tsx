@@ -33,6 +33,8 @@ import {
   PlatformSettings 
 } from '../types';
 import { WEEKLY_SALARY_TIERS } from '../data/defaultData';
+import { isPreLaunchLocked } from '../utils/launchUtils';
+import { LaunchCountdownBanner } from './LaunchCountdownBanner';
 
 interface DashboardViewProps {
   user: UserProfile;
@@ -170,6 +172,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </motion.div>
+      )}
+
+      {/* OFFICIAL PRE-LAUNCH COUNTDOWN & TEAM BUILDING BANNER */}
+      {isPreLaunchLocked(settings).isLocked && (
+        <LaunchCountdownBanner
+          settings={settings}
+          user={user}
+          onOpenReferrals={() => onNavigate('referrals')}
+        />
       )}
 
       {/* 2. WELCOME & USER IDENTITY HEADER */}

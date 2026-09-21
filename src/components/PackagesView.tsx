@@ -11,9 +11,14 @@ import {
   X,
   ArrowDownCircle,
   ArrowUpCircle,
-  Wallet
+  Wallet,
+  Lock,
+  Rocket
 } from 'lucide-react';
 import { InvestmentPackage, PlatformSettings, UserProfile } from '../types';
+import { isPreLaunchLocked, formatLaunchDate } from '../utils/launchUtils';
+import { LaunchCountdownBanner } from './LaunchCountdownBanner';
+import { LaunchLockModal } from './LaunchLockModal';
 
 interface PackagesViewProps {
   packages: InvestmentPackage[];
@@ -22,6 +27,7 @@ interface PackagesViewProps {
   onActivatePackage: (pkg: InvestmentPackage) => void;
   onOpenDeposit: () => void;
   onOpenWithdraw?: () => void;
+  onOpenReferrals?: () => void;
 }
 
 export const PackagesView: React.FC<PackagesViewProps> = ({
@@ -31,20 +37,38 @@ export const PackagesView: React.FC<PackagesViewProps> = ({
   onActivatePackage,
   onOpenDeposit,
   onOpenWithdraw,
+  onOpenReferrals,
 }) => {
   const [confirmModalPkg, setConfirmModalPkg] = useState<InvestmentPackage | null>(null);
+  const [showLaunchModal, setShowLaunchModal] = useState(false);
+
+  const launchStatus = isPreLaunchLocked(settings);
+  const isInvestmentLocked = launchStatus.isLocked && launchStatus.lockInvestments;
 
   const activePackages = packages
     .filter(p => p.isActive)
     .sort((a, b) => a.priceKES - b.priceKES);
 
   const handleOpenConfirm = (pkg: InvestmentPackage) => {
+    if (isInvestmentLocked) {
+      setShowLaunchModal(true);
+      return;
+    }
     setConfirmModalPkg(pkg);
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
+      {/* Pre-Launch Countdown & Team Referral Announcement Banner */}
+      {launchStatus.isLocked && (
+        <LaunchCountdownBanner
+          settings={settings}
+          user={user}
+          onOpenReferrals={onOpenReferrals}
+        />
+      )}
+
       {/* Header Bar Strictly for Investment Packages with Quick Capital Actions */}
       <div className="bg-gradient-to-r from-[#0c121f] via-[#11192e] to-[#0c121f] border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2 flex-1">
@@ -222,24 +246,44 @@ export const PackagesView: React.FC<PackagesViewProps> = ({
 
               {/* Card Action */}
               <div className="p-5 pt-0 space-y-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  id={`btn-invest-${pkg.id}`}
-                  onClick={() => handleOpenConfirm(pkg)}
-                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2 ${
-                    isHighlighted
-                      ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
-                      : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700/80'
-                  }`}
-                >
-                  <span>Activate Plan • KES {pkg.priceKES.toLocaleString()}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </motion.button>
+                {isInvestmentLocked ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    id={`btn-invest-${pkg.id}`}
+                    onClick={() => handleOpenConfirm(pkg)}
+                    className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-purple-950/80 to-amber-950/60 hover:from-purple-900/90 hover:to-amber-900/80 text-purple-200 border border-purple-500/50 flex items-center justify-center gap-2 cursor-pointer transition shadow-lg shadow-purple-950/40"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                    <span>Unlocks on Launch Day • KES {pkg.priceKES.toLocaleString()}</span>
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    id={`btn-invest-${pkg.id}`}
+                    onClick={() => handleOpenConfirm(pkg)}
+                    className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition cursor-pointer flex items-center justify-center gap-2 ${
+                      isHighlighted
+                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
+                        : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700/80'
+                    }`}
+                  >
+                    <span>Activate Plan • KES {pkg.priceKES.toLocaleString()}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </motion.button>
+                )}
 
-                {!canAfford && (
+                {!isInvestmentLocked && !canAfford && (
                   <p className="text-[10px] text-amber-400 text-center">
                     Requires KES {(pkg.priceKES - user.walletBalanceKES).toLocaleString()} balance
+                  </p>
+                )}
+
+                {isInvestmentLocked && (
+                  <p className="text-[10px] text-purple-300/80 text-center flex items-center justify-center gap-1">
+                    <Rocket className="w-3 h-3 text-purple-400" />
+                    <span>+{settings.earlyBirdBonusPercent || 10}% Early Bird Bonus at Launch</span>
                   </p>
                 )}
               </div>
@@ -376,6 +420,16 @@ export const PackagesView: React.FC<PackagesViewProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Pre-Launch Lock Interactive Explainer Modal */}
+      <LaunchLockModal
+        isOpen={showLaunchModal}
+        onClose={() => setShowLaunchModal(false)}
+        settings={settings}
+        user={user}
+        featureName="Investment Package Activation"
+        onOpenReferrals={onOpenReferrals}
+      />
     </div>
   );
 };

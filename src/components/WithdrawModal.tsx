@@ -14,9 +14,12 @@ import {
   ArrowRight,
   Lock,
   ShieldAlert,
-  AlertTriangle
+  AlertTriangle,
+  Rocket,
+  Calendar
 } from 'lucide-react';
 import { PlatformSettings, UserProfile, WithdrawalMethod } from '../types';
+import { isPreLaunchLocked, getTimeRemaining, formatLaunchDate } from '../utils/launchUtils';
 
 interface WithdrawModalProps {
   isOpen: boolean;
@@ -58,6 +61,18 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
       }
     }
   }, [isOpen, minWithdrawal, user.walletBalanceKES]);
+
+  const launchStatus = isPreLaunchLocked(settings);
+  const isWithdrawalLocked = launchStatus.isLocked && launchStatus.lockWithdrawals;
+  const [remainingTime, setRemainingTime] = useState(() => getTimeRemaining(settings.launchDate || null));
+
+  useEffect(() => {
+    if (!isOpen || !isWithdrawalLocked) return;
+    const ticker = setInterval(() => {
+      setRemainingTime(getTimeRemaining(settings.launchDate || null));
+    }, 1000);
+    return () => clearInterval(ticker);
+  }, [isOpen, isWithdrawalLocked, settings.launchDate]);
 
   if (!isOpen) return null;
 
@@ -154,7 +169,70 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
             </motion.button>
           </div>
 
-          {isSuccess ? (
+          {isWithdrawalLocked ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="py-4 space-y-4 text-center relative z-10"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-amber-500/20 border border-purple-500/40 flex items-center justify-center mx-auto text-purple-300 shadow-lg shadow-purple-500/20">
+                <Rocket className="w-8 h-8 animate-bounce text-purple-300" />
+              </div>
+
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-xs font-bold text-amber-300">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Withdrawals Locked for Pre-Launch</span>
+                </div>
+                <h4 className="font-extrabold text-white text-base">
+                  Platform Opens on Official Launch Day
+                </h4>
+                <p className="text-xs text-slate-300 leading-relaxed px-2">
+                  All financial withdrawals and settlements will unlock automatically when the platform goes live. Build your team and verify your profile during this pre-launch window!
+                </p>
+              </div>
+
+              {/* Countdown Ticker */}
+              <div className="bg-[#080d17] border border-purple-500/40 rounded-2xl p-4 shadow-inner">
+                <div className="text-[11px] font-bold text-purple-300 uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Unlocks In</span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="bg-[#111726] border border-slate-800 rounded-xl p-2 text-center">
+                    <div className="text-lg font-black text-white font-mono">{String(remainingTime.days).padStart(2, '0')}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Days</div>
+                  </div>
+                  <div className="bg-[#111726] border border-slate-800 rounded-xl p-2 text-center">
+                    <div className="text-lg font-black text-white font-mono">{String(remainingTime.hours).padStart(2, '0')}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Hours</div>
+                  </div>
+                  <div className="bg-[#111726] border border-slate-800 rounded-xl p-2 text-center">
+                    <div className="text-lg font-black text-white font-mono">{String(remainingTime.minutes).padStart(2, '0')}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Mins</div>
+                  </div>
+                  <div className="bg-[#111726] border border-amber-500/50 rounded-xl p-2 text-center animate-pulse">
+                    <div className="text-lg font-black text-amber-400 font-mono">{String(remainingTime.seconds).padStart(2, '0')}</div>
+                    <div className="text-[9px] font-bold text-amber-300 uppercase">Secs</div>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 text-[11px] text-slate-400 flex items-center justify-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Target Date: <strong className="text-white">{formatLaunchDate(settings.launchDate || null)}</strong></span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Understood
+              </button>
+            </motion.div>
+          ) : isSuccess ? (
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}

@@ -24,7 +24,8 @@ import {
   Zap,
   Terminal,
   ShieldAlert,
-  Users
+  Users,
+  Rocket
 } from 'lucide-react';
 import { InvestmentPackage, PlatformSettings, WithdrawalRequest, UserProfile } from '../types';
 import { AdminCommunicationCenter } from './AdminCommunicationCenter';
@@ -32,9 +33,12 @@ import { DatabaseDashboard } from './DatabaseDashboard';
 import { ApiExplorerView } from './ApiExplorerView';
 import { AntiFraudDashboard } from './AntiFraudDashboard';
 import { AdminUserManagement } from './AdminUserManagement';
+import { AdminLaunchControls } from './AdminLaunchControls';
+import { isPreLaunchLocked } from '../utils/launchUtils';
 import { chatService } from '../services/chatService';
 
 export type AdminTab = 
+  | 'launch'
   | 'users' 
   | 'withdrawals' 
   | 'packages' 
@@ -237,6 +241,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Navigation Tabs */}
       <div className="flex bg-[#0d1320] rounded-2xl p-1.5 border border-slate-800 gap-1.5 overflow-x-auto">
         <button
+          id="admin-tab-launch"
+          onClick={() => setActiveAdminTab('launch')}
+          className={`py-2.5 px-4 text-xs font-bold rounded-xl transition cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+            activeAdminTab === 'launch'
+              ? 'bg-gradient-to-r from-purple-600 to-amber-600 text-white shadow-lg shadow-purple-600/30'
+              : 'text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30'
+          }`}
+        >
+          <Rocket className="w-4 h-4 text-amber-400 animate-bounce" />
+          <span>Launch & Lock</span>
+          {isPreLaunchLocked(settings).isLocked ? (
+            <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 rounded-full font-mono text-[10px] font-bold">
+              LOCK ACTIVE
+            </span>
+          ) : (
+            <span className="px-1.5 py-0.5 bg-emerald-500 text-slate-950 rounded-full font-mono text-[10px] font-bold">
+              LIVE
+            </span>
+          )}
+        </button>
+
+        <button
           id="admin-tab-users"
           onClick={() => setActiveAdminTab('users')}
           className={`py-2.5 px-4 text-xs font-bold rounded-xl transition cursor-pointer whitespace-nowrap flex items-center gap-2 ${
@@ -370,6 +396,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <span>API Console</span>
         </button>
       </div>
+
+      {/* Tab: Pre-Launch & Launch Lock System */}
+      {activeAdminTab === 'launch' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <AdminLaunchControls
+            settings={settings}
+            onUpdateSettings={onUpdateSettings}
+          />
+        </motion.div>
+      )}
 
       {/* Tab: Users & Investors Management */}
       {activeAdminTab === 'users' && (

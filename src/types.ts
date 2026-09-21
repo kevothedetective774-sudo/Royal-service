@@ -168,6 +168,16 @@ export interface PlatformSettings {
   // Risk-Based KYC Settings
   kycRequiredForHighRisk?: boolean;
   kycRiskScoreThreshold?: number; // default e.g. 60
+  // Pre-Launch & Official Launch Lock Configuration
+  preLaunchMode?: boolean; // When true, platform is in pre-launch mode
+  launchDate?: string; // ISO datetime string for automatic live unlock e.g. "2026-09-25T15:00:00.000Z"
+  launchTitle?: string; // Headline e.g. "🚀 Official Platform Launch — Pre-Registration Phase"
+  launchAnnouncement?: string; // Broadcast notice displayed across investor dashboards
+  lockDeposits?: boolean; // When in pre-launch, whether deposits are locked (default true)
+  lockInvestments?: boolean; // When in pre-launch, whether buying packages/investing is locked (default true)
+  lockWithdrawals?: boolean; // When in pre-launch, whether withdrawals are locked (default true)
+  allowPreRegistrations?: boolean; // Allowed (true)
+  earlyBirdBonusPercent?: number; // e.g. 10 (%) bonus yield on launch day contracts
 }
 
 export interface PayHeroInitiateResponse {

@@ -16,9 +16,15 @@ import {
   Copy,
   Check,
   Info,
-  AlertTriangle
+  AlertTriangle,
+  Rocket,
+  Lock,
+  Calendar,
+  Share2,
+  Users
 } from 'lucide-react';
 import { PlatformSettings, UserProfile } from '../types';
+import { isPreLaunchLocked, getTimeRemaining, formatLaunchDate } from '../utils/launchUtils';
 import { payheroApi } from '../services/payheroApi';
 import { nowpaymentsApi } from '../services/nowpaymentsApi';
 import { NowPaymentsDepositResponse } from '../services/nowpaymentsService';
@@ -81,12 +87,40 @@ export const DepositModal: React.FC<DepositModalProps> = ({
     };
   }, []);
 
+  const launchStatus = isPreLaunchLocked(settings);
+  const isDepositLocked = launchStatus.isLocked && launchStatus.lockDeposits;
+  const [remainingTime, setRemainingTime] = useState(() => getTimeRemaining(settings.launchDate || null));
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !isDepositLocked) return;
+    const ticker = setInterval(() => {
+      setRemainingTime(getTimeRemaining(settings.launchDate || null));
+    }, 1000);
+    return () => clearInterval(ticker);
+  }, [isOpen, isDepositLocked, settings.launchDate]);
+
   if (!isOpen) return null;
+
+  const referralCode = user?.referralCode || 'ROYAL-EARLY';
+  const referralLink = typeof window !== 'undefined' 
+    ? `${window.location.origin}/?ref=${referralCode}` 
+    : `https://royalservices.ke/?ref=${referralCode}`;
+
+  const handleCopyReferral = () => {
+    navigator.clipboard?.writeText(referralLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   const usdtEquivalent = (amount / settings.usdtToKesExchangeRate).toFixed(2);
 
   const handleTriggerDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDepositLocked) {
+      setErrorMessage(`Deposits are currently locked for Pre-Launch. Platform unlocks on ${formatLaunchDate(settings.launchDate || null)}.`);
+      return;
+    }
     if (amount <= 0) return;
     setErrorMessage(null);
     setIsProcessing(true);
@@ -302,7 +336,110 @@ export const DepositModal: React.FC<DepositModalProps> = ({
             </motion.button>
           </div>
 
-          {isSuccess ? (
+          {isDepositLocked ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="py-4 space-y-4 text-center relative z-10"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-amber-500/20 border border-purple-500/40 flex items-center justify-center mx-auto text-purple-300 shadow-lg shadow-purple-500/20">
+                <Rocket className="w-8 h-8 animate-bounce text-purple-300" />
+              </div>
+
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-xs font-bold text-amber-300">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Pre-Launch Lock Active</span>
+                </div>
+                <h4 className="font-extrabold text-white text-base">
+                  {settings.launchTitle || 'Deposits Unlock on Launch Day'}
+                </h4>
+                <p className="text-xs text-slate-300 leading-relaxed px-2">
+                  {settings.launchAnnouncement ||
+                    'Deposits and investment contracts will automatically unlock when the countdown reaches zero. You can register and invite your team now so everyone is ready on launch day!'}
+                </p>
+              </div>
+
+              {/* Countdown Ticker Box */}
+              <div className="bg-[#080d17] border border-purple-500/40 rounded-2xl p-4 shadow-inner">
+                <div className="text-[11px] font-bold text-purple-300 uppercase tracking-wider mb-2 flex items-center justify-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Official Launch In</span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="bg-[#111726] border border-slate-800 rounded-xl p-2 text-center">
+                    <div className="text-lg font-black text-white font-mono">{String(remainingTime.days).padStart(2, '0')}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Days</div>
+                  </div>
+                  <div className="bg-[#111726] border border-slate-800 rounded-xl p-2 text-center">
+                    <div className="text-lg font-black text-white font-mono">{String(remainingTime.hours).padStart(2, '0')}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Hours</div>
+                  </div>
+                  <div className="bg-[#111726] border border-slate-800 rounded-xl p-2 text-center">
+                    <div className="text-lg font-black text-white font-mono">{String(remainingTime.minutes).padStart(2, '0')}</div>
+                    <div className="text-[9px] font-bold text-slate-400 uppercase">Mins</div>
+                  </div>
+                  <div className="bg-[#111726] border border-amber-500/50 rounded-xl p-2 text-center animate-pulse">
+                    <div className="text-lg font-black text-amber-400 font-mono">{String(remainingTime.seconds).padStart(2, '0')}</div>
+                    <div className="text-[9px] font-bold text-amber-300 uppercase">Secs</div>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 text-[11px] text-slate-400 flex items-center justify-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Target Date: <strong className="text-white">{formatLaunchDate(settings.launchDate || null)}</strong></span>
+                </div>
+              </div>
+
+              {/* Early Bird Downline Invite Card */}
+              <div className="p-3.5 bg-[#080d17] border border-slate-800 rounded-xl text-left space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                  <Users className="w-4 h-4 text-purple-400" />
+                  <span>Build Your Referral Downline Early</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-normal">
+                  Share your link with your network now. When they deposit on launch day, you will immediately earn 7% Tier 1, 3% Tier 2, and 1% Tier 3 instant commissions!
+                </p>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    readOnly
+                    value={referralLink}
+                    className="bg-[#111726] border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-purple-300 font-mono w-full focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyReferral}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+                  >
+                    {copiedLink ? <Check className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-1">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`🚀 Join me early on Royal Services before the grand launch! Register now to secure early-bird perks: ${referralLink}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/20"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Share on WhatsApp</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+                >
+                  I Understand
+                </button>
+              </div>
+            </motion.div>
+          ) : isSuccess ? (
             <motion.div 
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}

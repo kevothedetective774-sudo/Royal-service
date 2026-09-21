@@ -38,6 +38,16 @@ export const initialPlatformSettings: PlatformSettings = {
   strictPhoneMatchEnabled: true,
   autoFreezeHighRisk: true,
   payheroChannelId: '11128',
+  // Pre-Launch & Official Launch Lock Configuration
+  preLaunchMode: true,
+  launchDate: '2026-09-26T15:00:00.000Z',
+  launchTitle: '🚀 Official Royal Service Platform Launch',
+  launchAnnouncement: 'Pre-registration & team referral building is currently OPEN! Deposits and investment contracts will automatically unlock at launch. Secure your spot early!',
+  lockDeposits: true,
+  lockInvestments: true,
+  lockWithdrawals: true,
+  allowPreRegistrations: true,
+  earlyBirdBonusPercent: 10,
 };
 
 export const initialPackages: InvestmentPackage[] = [

@@ -66,6 +66,7 @@ import {
   getNowPaymentsCredentials
 } from './src/services/nowpaymentsService.ts';
 import { RiskAssessmentService } from './src/services/riskAssessmentService.ts';
+import { isPreLaunchLocked } from './src/utils/launchUtils.ts';
 import { InvestmentPackage, ChatMessage, ChatThread } from './src/types.ts';
 
 // Helper: Format current timestamp (e.g., '10:45 AM')
@@ -721,6 +722,17 @@ async function startServer() {
       const { userId, investment, transaction, userUpdates } = req.body;
       const uid = userId || 'usr-98214';
 
+      // Pre-Launch Lock Enforcement
+      const settings = await getPlatformSettings();
+      const launchStatus = isPreLaunchLocked(settings);
+      if (launchStatus.isLocked && launchStatus.lockInvestments) {
+        return res.status(403).json({
+          error: `Platform is currently in Pre-Launch phase. Investment contracts unlock on ${settings.launchDate ? new Date(settings.launchDate).toLocaleString() : 'Launch Day'}. Please register, explore packages, and build your referral team!`,
+          isPreLaunch: true,
+          launchDate: settings.launchDate,
+        });
+      }
+
       const user = await findUserById(uid);
       if (user?.isFrozen) {
         return res.status(403).json({
@@ -762,6 +774,20 @@ async function startServer() {
     try {
       const { userId, transaction, userUpdates } = req.body;
       const uid = userId || 'usr-98214';
+
+      // Pre-Launch Deposit Lock Enforcement
+      if (transaction && transaction.type === 'deposit') {
+        const settings = await getPlatformSettings();
+        const launchStatus = isPreLaunchLocked(settings);
+        if (launchStatus.isLocked && launchStatus.lockDeposits) {
+          return res.status(403).json({
+            error: `Deposits are locked during the Pre-Launch phase. Platform launches on ${settings.launchDate ? new Date(settings.launchDate).toLocaleString() : 'Launch Day'}.`,
+            isPreLaunch: true,
+            launchDate: settings.launchDate,
+          });
+        }
+      }
+
       const savedTx = await createTransaction(uid, transaction);
       if (userUpdates) {
         await updateUserBalance(uid, userUpdates);
@@ -808,6 +834,17 @@ async function startServer() {
 
       const uid = withdrawal.userId || 'usr-98214';
       const settings = await getPlatformSettings();
+
+      // Pre-Launch Withdrawal Lock Enforcement
+      const launchStatus = isPreLaunchLocked(settings);
+      if (launchStatus.isLocked && launchStatus.lockWithdrawals) {
+        return res.status(403).json({
+          error: `Withdrawals are locked during the Pre-Launch phase. Platform will open on ${settings.launchDate ? new Date(settings.launchDate).toLocaleString() : 'Launch Day'}.`,
+          isPreLaunch: true,
+          launchDate: settings.launchDate,
+        });
+      }
+
       const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
 
       // 1. Fetch User Record
@@ -1523,6 +1560,18 @@ async function startServer() {
       if (!amount || Number(amount) <= 0) {
         return res.status(400).json({ error: 'Valid deposit amount in KES is required' });
       }
+
+      // Pre-Launch Deposit Lock Enforcement
+      const settings = await getPlatformSettings();
+      const launchStatus = isPreLaunchLocked(settings);
+      if (launchStatus.isLocked && launchStatus.lockDeposits) {
+        return res.status(403).json({
+          error: `M-Pesa deposits are currently locked for Pre-Launch. Official platform launch is on ${settings.launchDate ? new Date(settings.launchDate).toLocaleString() : 'Launch Day'}.`,
+          isPreLaunch: true,
+          launchDate: settings.launchDate,
+        });
+      }
+
       const cleaned = (phoneNumber || '').replace(/\D/g, '');
       if (!phoneNumber || cleaned.length < 9) {
         return res.status(400).json({ error: 'Please enter a valid Safaricom phone number (e.g. 0712345678 or 254712345678)' });
@@ -1617,6 +1666,17 @@ async function startServer() {
         return res.status(400).json({ error: 'Valid deposit amount in KES is required' });
       }
 
+      // Pre-Launch Deposit Lock Enforcement
+      const settings = await getPlatformSettings();
+      const launchStatus = isPreLaunchLocked(settings);
+      if (launchStatus.isLocked && launchStatus.lockDeposits) {
+        return res.status(403).json({
+          error: `Crypto deposits are currently locked for Pre-Launch. Official platform launch is on ${settings.launchDate ? new Date(settings.launchDate).toLocaleString() : 'Launch Day'}.`,
+          isPreLaunch: true,
+          launchDate: settings.launchDate,
+        });
+      }
+
       const uid = userId || 'usr-98214';
       const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
       const host = (req.headers['x-forwarded-host'] as string) || req.get('host') || '';
@@ -1661,6 +1721,17 @@ async function startServer() {
       }
       if (!txHash || !txHash.trim()) {
         return res.status(400).json({ error: 'Polygon Transaction Hash / Reference is required' });
+      }
+
+      // Pre-Launch Deposit Lock Enforcement
+      const settings = await getPlatformSettings();
+      const launchStatus = isPreLaunchLocked(settings);
+      if (launchStatus.isLocked && launchStatus.lockDeposits) {
+        return res.status(403).json({
+          error: `Manual crypto deposits are locked during Pre-Launch. Platform launches on ${settings.launchDate ? new Date(settings.launchDate).toLocaleString() : 'Launch Day'}.`,
+          isPreLaunch: true,
+          launchDate: settings.launchDate,
+        });
       }
 
       const uid = userId || 'usr-98214';
