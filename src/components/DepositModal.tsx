@@ -45,8 +45,6 @@ export const DepositModal: React.FC<DepositModalProps> = ({
   onDepositSuccess,
 }) => {
   const [method, setMethod] = useState<'mpesa' | 'crypto'>('mpesa');
-  const [cryptoMode, setCryptoMode] = useState<'gateway' | 'direct'>('gateway');
-  const [manualTxHash, setManualTxHash] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [ipErrorDetails, setIpErrorDetails] = useState<{ isIpError: boolean; ip: string; message: string } | null>(null);
   const [amount, setAmount] = useState<number>(900); // default to silver package price
@@ -178,73 +176,46 @@ export const DepositModal: React.FC<DepositModalProps> = ({
         setErrorMessage(err.message || 'Failed to initiate M-Pesa prompt. Please check your phone number and try again.');
       }
     } else {
-      // USDT on Polygon (NOWPayments & Direct Transfer)
-      if (cryptoMode === 'direct') {
-        if (!manualTxHash.trim()) {
-          setIsProcessing(false);
-          setErrorMessage('Please enter your Polygon Transaction Hash (TxHash) to verify deposit.');
-          return;
+      // USDT on Polygon (Automated NOWPayments Gateway)
+      try {
+        const order = await nowpaymentsApi.createDeposit({
+          userId: user.id,
+          amountKES: amount,
+          usdtToKesRate: settings.usdtToKesExchangeRate,
+        });
+
+        if (!order || !order.payAddress) {
+          throw new Error(order?.message || 'NOWPayments did not return a valid deposit address.');
         }
 
-        try {
-          const res = await nowpaymentsApi.manualDepositSubmit({
-            userId: user.id,
-            amountKES: amount,
-            usdtAmount: Number(usdtEquivalent),
-            txHash: manualTxHash.trim(),
-          });
+        setNowPaymentsOrder(order);
+        setNowPaymentsPromptStep(true);
+        setCountdown(300);
+        setNowPaymentsStatusText('Listening for Polygon blockchain transaction...');
 
-          setTxRef(res.reference);
-          onDepositSuccess(amount, 'crypto', res.reference);
-          setIsProcessing(false);
-          setIsSuccess(true);
-        } catch (err: any) {
-          console.error('Direct Polygon USDT deposit error:', err);
-          setIsProcessing(false);
-          setErrorMessage(err.message || 'Failed to submit direct Polygon USDT deposit.');
-        }
-      } else {
-        // NOWPayments Automated Gateway (USDT on Polygon)
-        try {
-          const order = await nowpaymentsApi.createDeposit({
-            userId: user.id,
-            amountKES: amount,
-            usdtToKesRate: settings.usdtToKesExchangeRate,
-          });
+        if (pollingRef.current) clearInterval(pollingRef.current);
 
-          if (!order || !order.payAddress) {
-            throw new Error(order?.message || 'NOWPayments did not return a valid deposit address.');
-          }
-
-          setNowPaymentsOrder(order);
-          setNowPaymentsPromptStep(true);
-          setCountdown(300);
-          setNowPaymentsStatusText('Listening for Polygon blockchain transaction...');
-
-          if (pollingRef.current) clearInterval(pollingRef.current);
-
-          pollingRef.current = setInterval(async () => {
-            try {
-              const statusRes = await nowpaymentsApi.checkPaymentStatus(order.paymentId);
-              if (statusRes.isConfirmed || statusRes.status === 'completed') {
-                if (pollingRef.current) clearInterval(pollingRef.current);
-                setTxRef(order.orderId);
-                onDepositSuccess(amount, 'crypto', order.orderId);
-                setIsProcessing(false);
-                setNowPaymentsPromptStep(false);
-                setIsSuccess(true);
-              } else if (statusRes.paymentStatus === 'confirming') {
-                setNowPaymentsStatusText('Confirming on Polygon blockchain...');
-              }
-            } catch (pollErr) {
-              console.warn('NOWPayments status poll notice:', pollErr);
+        pollingRef.current = setInterval(async () => {
+          try {
+            const statusRes = await nowpaymentsApi.checkPaymentStatus(order.paymentId);
+            if (statusRes.isConfirmed || statusRes.status === 'completed') {
+              if (pollingRef.current) clearInterval(pollingRef.current);
+              setTxRef(order.orderId);
+              onDepositSuccess(amount, 'crypto', order.orderId);
+              setIsProcessing(false);
+              setNowPaymentsPromptStep(false);
+              setIsSuccess(true);
+            } else if (statusRes.paymentStatus === 'confirming') {
+              setNowPaymentsStatusText('Confirming on Polygon blockchain...');
             }
-          }, 3000);
-        } catch (err: any) {
-          console.error('[NOWPayments Client Error]:', err.message);
-          setIsProcessing(false);
-          setErrorMessage(err.message || 'Failed to create NOWPayments invoice. Please ensure NOWPAYMENTS_API_KEY is configured in Environment Secrets.');
-        }
+          } catch (pollErr) {
+            console.warn('NOWPayments status poll notice:', pollErr);
+          }
+        }, 3000);
+      } catch (err: any) {
+        console.error('[NOWPayments Client Error]:', err.message);
+        setIsProcessing(false);
+        setErrorMessage(err.message || 'Failed to create NOWPayments invoice. Please try again.');
       }
     }
   };
@@ -747,102 +718,24 @@ export const DepositModal: React.FC<DepositModalProps> = ({
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-3"
                 >
-                  {/* Mode Selector */}
-                  <div className="flex rounded-lg bg-[#0a0e17] p-1 border border-slate-800 text-xs font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => setCryptoMode('gateway')}
-                      className={`flex-1 py-1.5 rounded-md transition cursor-pointer text-center ${
-                        cryptoMode === 'gateway'
-                          ? 'bg-purple-600 text-white font-bold shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      ⚡ Automated Polygon Invoice
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCryptoMode('direct')}
-                      className={`flex-1 py-1.5 rounded-md transition cursor-pointer text-center ${
-                        cryptoMode === 'direct'
-                          ? 'bg-purple-600 text-white font-bold shadow-sm'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Direct Polygon Transfer
-                    </button>
+                  <div className="p-3.5 bg-[#111726] rounded-xl border border-purple-500/30 text-xs space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-white">
+                        <Zap className="w-3.5 h-3.5 text-purple-400 fill-purple-400" />
+                        <span>Automated Polygon Transfer</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                        Polygon (USDT)
+                      </span>
+                    </div>
+                    <p className="text-[11.5px] text-slate-300 leading-relaxed">
+                      Click below to generate your unique, automated Polygon deposit QR code and wallet address for <strong className="text-white">${usdtEquivalent} USDT</strong>. The system will automatically detect your transfer and credit your balance instantly upon blockchain confirmation.
+                    </p>
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-800 text-[11px] text-slate-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>Zero manual confirmations needed • Instant automated crediting</span>
+                    </div>
                   </div>
-
-                  {cryptoMode === 'direct' ? (
-                    <div className="space-y-2.5">
-                      {/* Polygon Vault Address Card */}
-                      <div className="p-3 bg-[#111726] rounded-xl border border-slate-800 text-xs space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-400">Network:</span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                            Polygon (MATIC / PoS)
-                          </span>
-                        </div>
-
-                        {/* USDT Wallet Address */}
-                        <div className="pt-2 border-t border-slate-800/80 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-slate-400 text-[11px]">Vault Polygon Address:</span>
-                            <button
-                              type="button"
-                              onClick={() => handleCopy('0x88c42E4d7c0B33A4e75f1b135A4F0Ce48C17F7De', 'polyVault')}
-                              className="text-[11px] text-purple-400 hover:text-purple-300 font-bold flex items-center gap-1 cursor-pointer"
-                            >
-                              {copiedField === 'polyVault' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                              <span>{copiedField === 'polyVault' ? 'Copied' : 'Copy'}</span>
-                            </button>
-                          </div>
-                          <p className="font-mono text-[10px] text-slate-300 break-all bg-[#0a0e17] p-1.5 rounded border border-slate-800">
-                            0x88c42E4d7c0B33A4e75f1b135A4F0Ce48C17F7De
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Instructions */}
-                      <div className="p-2.5 bg-[#0a0e17] rounded-xl border border-slate-800 text-[11px] text-slate-300 space-y-1">
-                        <div className="font-semibold text-purple-400 flex items-center gap-1">
-                          <Zap className="w-3 h-3 fill-purple-400" />
-                          <span>How to Complete:</span>
-                        </div>
-                        <ol className="list-decimal list-inside space-y-0.5 text-slate-400 text-[10.5px]">
-                          <li>Send exactly <strong className="text-white">${usdtEquivalent} USDT</strong> on Polygon Network to the vault address above.</li>
-                          <li>Paste your Polygon Transaction Hash (TxHash) below to verify deposit.</li>
-                        </ol>
-                      </div>
-
-                      {/* Input for User Tx ID */}
-                      <div>
-                        <label className="block font-semibold text-slate-300 mb-1 text-xs">
-                          Polygon TxHash
-                        </label>
-                        <input
-                          type="text"
-                          value={manualTxHash}
-                          onChange={(e) => setManualTxHash(e.target.value)}
-                          className="w-full px-3 py-2 bg-[#0a0e17] border border-slate-700/80 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-purple-500"
-                          placeholder="e.g. 0x4b7e8912..."
-                          required={cryptoMode === 'direct'}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-[#111726] rounded-xl border border-slate-800 text-xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-300">NOWPayments Automated Checkout</span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                          Instant IPN
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        An instant dynamic deposit address and QR code will be created for <strong className="text-white">${usdtEquivalent} USDT</strong> on the <strong className="text-purple-300">Polygon (MATIC)</strong> network. The transaction will automatically be detected and credited to your balance upon blockchain confirmation.
-                      </p>
-                    </div>
-                  )}
                 </motion.div>
               )}
 
@@ -868,15 +761,10 @@ export const DepositModal: React.FC<DepositModalProps> = ({
                     <Zap className="w-4 h-4 fill-slate-950" />
                     <span>Send Instant STK Push (KES {amount.toLocaleString()})</span>
                   </>
-                ) : cryptoMode === 'direct' ? (
-                  <>
-                    <Zap className="w-4 h-4 fill-white" />
-                    <span>Confirm Polygon Transfer (${usdtEquivalent} USDT • KES {amount.toLocaleString()})</span>
-                  </>
                 ) : (
                   <>
                     <QrCode className="w-4 h-4" />
-                    <span>Generate NOWPayments Invoice (${usdtEquivalent} USDT)</span>
+                    <span>Generate Automated Polygon Invoice (${usdtEquivalent} USDT)</span>
                   </>
                 )}
               </motion.button>

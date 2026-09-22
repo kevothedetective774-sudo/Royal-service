@@ -13,7 +13,8 @@ import {
   ArrowUpCircle,
   Wallet,
   Lock,
-  Rocket
+  Rocket,
+  Calendar
 } from 'lucide-react';
 import { InvestmentPackage, PlatformSettings, UserProfile } from '../types';
 import { isPreLaunchLocked, formatLaunchDate } from '../utils/launchUtils';
@@ -28,6 +29,20 @@ interface PackagesViewProps {
   onOpenDeposit: () => void;
   onOpenWithdraw?: () => void;
   onOpenReferrals?: () => void;
+}
+
+function formatPlanRunningDays(schedule?: string, customDays?: string[]): string {
+  switch (schedule) {
+    case 'weekdays':
+      return 'Mon – Fri (Weekdays Only)';
+    case 'weekends':
+      return 'Sat – Sun (Weekends Only)';
+    case 'custom':
+      return customDays && customDays.length > 0 ? customDays.join(', ') : 'Custom Days';
+    case 'all':
+    default:
+      return 'Mon – Sun (All 7 Days)';
+  }
 }
 
 export const PackagesView: React.FC<PackagesViewProps> = ({
@@ -195,6 +210,18 @@ export const PackagesView: React.FC<PackagesViewProps> = ({
                     <span className="font-semibold text-slate-200 font-mono">Exactly {pkg.durationDays} Days</span>
                   </div>
 
+                  {pkg.showRunningDaysToUsers !== false && (
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                        Running Days
+                      </span>
+                      <span className="font-semibold text-purple-300 font-mono text-[11px]">
+                        {formatPlanRunningDays(pkg.runningSchedule, pkg.customRunningDays)}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center text-slate-400">
                     <span className="flex items-center gap-1.5">
                       <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
@@ -347,6 +374,14 @@ export const PackagesView: React.FC<PackagesViewProps> = ({
                   <span className="text-slate-400">Duration:</span>
                   <span className="font-semibold text-white font-mono">Exactly {confirmModalPkg.durationDays} Days</span>
                 </div>
+                {confirmModalPkg.showRunningDaysToUsers !== false && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Running Schedule:</span>
+                    <span className="font-semibold text-purple-300 font-mono text-[11px]">
+                      {formatPlanRunningDays(confirmModalPkg.runningSchedule, confirmModalPkg.customRunningDays)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-400">Total Accumulated Payout:</span>
                   <span className="font-extrabold text-white font-mono">

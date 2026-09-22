@@ -660,6 +660,9 @@ async function startServer() {
         description: body.description?.trim() || `${dailyRoiPercent}% daily yield for ${durationDays} days.`,
         isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
         color: body.color || 'from-indigo-600 to-purple-700',
+        runningSchedule: body.runningSchedule || 'all',
+        customRunningDays: Array.isArray(body.customRunningDays) ? body.customRunningDays : [],
+        showRunningDaysToUsers: body.showRunningDaysToUsers !== false,
         features: Array.isArray(body.features) && body.features.length > 0 
           ? body.features 
           : [

@@ -1,3 +1,5 @@
+export type PlanRunningSchedule = 'all' | 'weekdays' | 'weekends' | 'custom';
+
 export interface InvestmentPackage {
   id: string;
   name: string;
@@ -9,6 +11,10 @@ export interface InvestmentPackage {
   isActive: boolean;
   color: string;
   features: string[];
+  // Plan schedule & visibility configuration
+  runningSchedule?: PlanRunningSchedule; // 'all' (Mon - Sun), 'weekdays' (Mon - Fri), 'weekends' (Sat - Sun), 'custom'
+  customRunningDays?: string[]; // e.g. ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+  showRunningDaysToUsers?: boolean; // Choose if users see days package are running or not
 }
 
 export interface ActiveInvestment {

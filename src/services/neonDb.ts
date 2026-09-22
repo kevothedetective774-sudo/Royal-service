@@ -195,6 +195,9 @@ export async function initNeonSchema(): Promise<boolean> {
         is_active BOOLEAN DEFAULT TRUE,
         color VARCHAR(64),
         features JSONB,
+        running_schedule VARCHAR(32) DEFAULT 'all',
+        custom_running_days JSONB,
+        show_running_days_to_users BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
@@ -396,6 +399,9 @@ export async function initNeonSchema(): Promise<boolean> {
       await sql`ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS settings JSONB;`;
       await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS rejection_reason TEXT;`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS salary_config JSONB;`;
+      await sql`ALTER TABLE packages ADD COLUMN IF NOT EXISTS running_schedule VARCHAR(32) DEFAULT 'all';`;
+      await sql`ALTER TABLE packages ADD COLUMN IF NOT EXISTS custom_running_days JSONB;`;
+      await sql`ALTER TABLE packages ADD COLUMN IF NOT EXISTS show_running_days_to_users BOOLEAN DEFAULT TRUE;`;
     } catch (migErr) {
       console.warn('[Neon DB] Safe migration notice:', migErr);
     }
@@ -406,10 +412,12 @@ export async function initNeonSchema(): Promise<boolean> {
       for (const p of initialPackages) {
         await sql`
           INSERT INTO packages (
-            id, name, tag, price_kes, daily_roi_percent, duration_days, description, is_active, color, features
+            id, name, tag, price_kes, daily_roi_percent, duration_days, description, is_active, color, features,
+            running_schedule, custom_running_days, show_running_days_to_users
           ) VALUES (
             ${p.id}, ${p.name}, ${p.tag || ''}, ${p.priceKES}, ${p.dailyRoiPercent}, ${p.durationDays}, 
-            ${p.description}, ${p.isActive}, ${p.color}, ${JSON.stringify(p.features)}
+            ${p.description}, ${p.isActive}, ${p.color}, ${JSON.stringify(p.features)},
+            ${p.runningSchedule || 'all'}, ${JSON.stringify(p.customRunningDays || [])}, ${p.showRunningDaysToUsers !== false}
           );
         `;
       }
@@ -1154,6 +1162,9 @@ export async function getAllPackages(): Promise<InvestmentPackage[]> {
           isActive: r.is_active,
           color: r.color,
           features: typeof r.features === 'string' ? JSON.parse(r.features) : r.features || [],
+          runningSchedule: r.running_schedule || 'all',
+          customRunningDays: typeof r.custom_running_days === 'string' ? JSON.parse(r.custom_running_days) : (r.custom_running_days || []),
+          showRunningDaysToUsers: r.show_running_days_to_users !== false,
         }));
       }
     } catch (err) {
@@ -1168,8 +1179,15 @@ export async function createInvestmentPackage(pkg: InvestmentPackage): Promise<I
   if (sql) {
     try {
       await sql`
-        INSERT INTO packages (id, name, tag, price_kes, daily_roi_percent, duration_days, description, is_active, color, features)
-        VALUES (${pkg.id}, ${pkg.name}, ${pkg.tag || ''}, ${pkg.priceKES}, ${pkg.dailyRoiPercent}, ${pkg.durationDays}, ${pkg.description || ''}, ${pkg.isActive}, ${pkg.color || ''}, ${JSON.stringify(pkg.features || [])});
+        INSERT INTO packages (
+          id, name, tag, price_kes, daily_roi_percent, duration_days, description, is_active, color, features,
+          running_schedule, custom_running_days, show_running_days_to_users
+        )
+        VALUES (
+          ${pkg.id}, ${pkg.name}, ${pkg.tag || ''}, ${pkg.priceKES}, ${pkg.dailyRoiPercent}, ${pkg.durationDays}, 
+          ${pkg.description || ''}, ${pkg.isActive}, ${pkg.color || ''}, ${JSON.stringify(pkg.features || [])},
+          ${pkg.runningSchedule || 'all'}, ${JSON.stringify(pkg.customRunningDays || [])}, ${pkg.showRunningDaysToUsers !== false}
+        );
       `;
     } catch (err) {
       console.warn('[Neon DB] createInvestmentPackage DB error:', err);
@@ -1200,7 +1218,10 @@ export async function updateInvestmentPackage(idOrPkg: string | InvestmentPackag
           description = ${pkg.description || ''},
           is_active = ${pkg.isActive},
           color = ${pkg.color || ''},
-          features = ${JSON.stringify(pkg.features || [])}
+          features = ${JSON.stringify(pkg.features || [])},
+          running_schedule = ${pkg.runningSchedule || 'all'},
+          custom_running_days = ${JSON.stringify(pkg.customRunningDays || [])},
+          show_running_days_to_users = ${pkg.showRunningDaysToUsers !== false}
         WHERE id = ${pkg.id};
       `;
     } catch (err) {
@@ -1233,8 +1254,15 @@ export async function resetInvestmentPackages(): Promise<InvestmentPackage[]> {
       await sql`DELETE FROM packages;`;
       for (const p of initialPackages) {
         await sql`
-          INSERT INTO packages (id, name, tag, price_kes, daily_roi_percent, duration_days, description, is_active, color, features)
-          VALUES (${p.id}, ${p.name}, ${p.tag || ''}, ${p.priceKES}, ${p.dailyRoiPercent}, ${p.durationDays}, ${p.description}, ${p.isActive}, ${p.color}, ${JSON.stringify(p.features)});
+          INSERT INTO packages (
+            id, name, tag, price_kes, daily_roi_percent, duration_days, description, is_active, color, features,
+            running_schedule, custom_running_days, show_running_days_to_users
+          )
+          VALUES (
+            ${p.id}, ${p.name}, ${p.tag || ''}, ${p.priceKES}, ${p.dailyRoiPercent}, ${p.durationDays}, 
+            ${p.description}, ${p.isActive}, ${p.color}, ${JSON.stringify(p.features)},
+            ${p.runningSchedule || 'all'}, ${JSON.stringify(p.customRunningDays || [])}, ${p.showRunningDaysToUsers !== false}
+          );
         `;
       }
     } catch (err) {

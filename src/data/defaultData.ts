@@ -39,13 +39,13 @@ export const initialPlatformSettings: PlatformSettings = {
   autoFreezeHighRisk: true,
   payheroChannelId: '11128',
   // Pre-Launch & Official Launch Lock Configuration
-  preLaunchMode: true,
+  preLaunchMode: false,
   launchDate: '2026-09-26T15:00:00.000Z',
-  launchTitle: '🚀 Official Royal Service Platform Launch',
-  launchAnnouncement: 'Pre-registration & team referral building is currently OPEN! Deposits and investment contracts will automatically unlock at launch. Secure your spot early!',
-  lockDeposits: true,
-  lockInvestments: true,
-  lockWithdrawals: true,
+  launchTitle: '🚀 Official Royal Service Platform Live',
+  launchAnnouncement: 'Deposits, investments, and automated yields are active! Instant payouts and team referral building are live.',
+  lockDeposits: false,
+  lockInvestments: false,
+  lockWithdrawals: false,
   allowPreRegistrations: true,
   earlyBirdBonusPercent: 10,
 };
@@ -61,6 +61,8 @@ export const initialPackages: InvestmentPackage[] = [
     description: 'Entry package paying KES 40/day for exactly 20 days. Capital is non-refundable; contract expires upon completion.',
     isActive: true,
     color: 'from-amber-600 to-amber-700',
+    runningSchedule: 'all',
+    showRunningDaysToUsers: true,
     features: [
       'Daily 8.0% return (KES 40/day)',
       'Total Payout: KES 800 (160%)',
@@ -79,6 +81,8 @@ export const initialPackages: InvestmentPackage[] = [
     description: 'Premier balanced package paying KES 90 per day for exactly 20 days. Capital is non-refundable; expires after 20 days.',
     isActive: true,
     color: 'from-emerald-500 to-teal-700',
+    runningSchedule: 'all',
+    showRunningDaysToUsers: true,
     features: [
       'Daily 10.0% return (KES 90/day)',
       'Total Payout: KES 1,800 (200%)',
@@ -98,6 +102,8 @@ export const initialPackages: InvestmentPackage[] = [
     description: 'Accelerated yield contract paying KES 250 per day for exactly 20 days. Capital non-refundable.',
     isActive: true,
     color: 'from-yellow-500 to-amber-600',
+    runningSchedule: 'weekdays',
+    showRunningDaysToUsers: true,
     features: [
       'Daily 10.0% return (KES 250/day)',
       'Total Payout: KES 5,000 (200%)',
@@ -117,6 +123,8 @@ export const initialPackages: InvestmentPackage[] = [
     description: 'Executive capital contract paying KES 660 per day for exactly 20 days. Capital expires without refund.',
     isActive: true,
     color: 'from-purple-600 to-indigo-700',
+    runningSchedule: 'all',
+    showRunningDaysToUsers: true,
     features: [
       'Daily 11.0% return (KES 660/day)',
       'Total Payout: KES 13,200 (220%)',
