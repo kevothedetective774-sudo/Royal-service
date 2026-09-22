@@ -1,4 +1,5 @@
 import { UserProfile } from '../types';
+import { apiUrl, parseJsonResponse } from '../utils/apiBase';
 
 export interface NeonStatusResponse {
   connected: boolean;
@@ -19,9 +20,9 @@ export interface NeonStatusResponse {
 
 export const authApi = {
   getNeonStatus: async (): Promise<NeonStatusResponse> => {
-    const res = await fetch('/api/neon/status');
+    const res = await fetch(apiUrl('/api/neon/status'));
     if (!res.ok) throw new Error('Failed to fetch Neon status');
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     return {
       connected: data.connected,
       database: data.database,
@@ -32,16 +33,16 @@ export const authApi = {
   },
 
   login: async (creds: { identifier: string; password: string }): Promise<{ success: boolean; user: UserProfile }> => {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(apiUrl('/api/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(creds),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to login');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   register: async (params: {
@@ -51,27 +52,27 @@ export const authApi = {
     password: string;
     referredByCode?: string;
   }): Promise<{ success: boolean; user: UserProfile }> => {
-    const res = await fetch('/api/auth/register', {
+    const res = await fetch(apiUrl('/api/auth/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to register');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   getAllUsers: async (): Promise<UserProfile[]> => {
-    const res = await fetch('/api/admin/users');
+    const res = await fetch(apiUrl('/api/admin/users'));
     if (res.ok) {
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
       return data.users || [];
     }
-    const fallbackRes = await fetch('/api/auth/users');
+    const fallbackRes = await fetch(apiUrl('/api/auth/users'));
     if (!fallbackRes.ok) throw new Error('Failed to fetch users');
-    const data = await fallbackRes.json();
+    const data = await parseJsonResponse(fallbackRes);
     return data.users || [];
   },
 
@@ -82,41 +83,41 @@ export const authApi = {
     type?: 'wallet' | 'invested';
     reason?: string;
   }): Promise<{ success: boolean; user: UserProfile; message: string }> => {
-    const res = await fetch(`/api/admin/users/${params.userId}/adjust-balance`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${params.userId}/adjust-balance`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to adjust balance');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   banUser: async (userId: string, reason?: string): Promise<{ success: boolean; user: UserProfile; message: string }> => {
-    const res = await fetch(`/api/admin/users/${userId}/ban`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${userId}/ban`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: reason || 'Account banned by administrator' }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to ban user');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   unbanUser: async (userId: string): Promise<{ success: boolean; user: UserProfile; message: string }> => {
-    const res = await fetch(`/api/admin/users/${userId}/unban`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${userId}/unban`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to unban user');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   flagKyc: async (params: {
@@ -126,115 +127,115 @@ export const authApi = {
     riskScore?: number;
     unfreeze?: boolean;
   }): Promise<{ success: boolean; user: UserProfile; message: string }> => {
-    const res = await fetch(`/api/admin/users/${params.userId}/kyc-flag`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${params.userId}/kyc-flag`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to update KYC status');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   violationWipe: async (userId: string, reason: string): Promise<{ success: boolean; user: UserProfile; message: string }> => {
-    const res = await fetch(`/api/admin/users/${userId}/violation-wipe`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${userId}/violation-wipe`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to execute terms violation wipe');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   wipeFailedTransactions: async (userId?: string): Promise<{ success: boolean; deletedCount: number; message: string }> => {
     const url = userId ? `/api/admin/users/${userId}/wipe-failed-transactions` : `/api/admin/wipe/failed-deposits`;
-    const res = await fetch(url, {
+    const res = await fetch(apiUrl(url), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to wipe transactions');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   wipeAllUserTransactions: async (userId: string): Promise<{ success: boolean; deletedCount: number; message: string }> => {
-    const res = await fetch(`/api/admin/users/${userId}/wipe-all-transactions`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${userId}/wipe-all-transactions`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to wipe user transactions');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   resetUserAccount: async (userId: string, reason?: string): Promise<{ success: boolean; user: UserProfile; message: string }> => {
-    const res = await fetch(`/api/admin/users/${userId}/reset-account`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${userId}/reset-account`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to reset user account');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   wipeUserLogs: async (userId: string): Promise<{ success: boolean; cleared: string[]; message: string }> => {
-    const res = await fetch(`/api/admin/users/${userId}/wipe-logs`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${userId}/wipe-logs`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to wipe user logs');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   resetUserPassword: async (userId: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
-    const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+    const res = await fetch(apiUrl(`/api/admin/users/${userId}/reset-password`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newPassword }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to reset password');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   wipeAntiFraudLogs: async (): Promise<{ success: boolean; deletedCount: number; message: string }> => {
-    const res = await fetch('/api/admin/wipe/antifraud-logs', {
+    const res = await fetch(apiUrl('/api/admin/wipe/antifraud-logs'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to wipe security logs');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 
   wipeAllTestData: async (): Promise<{ success: boolean; message: string }> => {
-    const res = await fetch('/api/admin/wipe/all-test-data', {
+    const res = await fetch(apiUrl('/api/admin/wipe/all-test-data'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to purge test data');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
 };

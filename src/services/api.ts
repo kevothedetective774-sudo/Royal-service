@@ -7,6 +7,7 @@ import {
   ReferralMember, 
   UserProfile 
 } from '../types';
+import { apiUrl, parseJsonResponse } from '../utils/apiBase';
 
 export interface NeonDbStatus {
   connected: boolean;
@@ -32,9 +33,9 @@ export interface NeonDbStatus {
 
 export const neonApi = {
   getStatus: async (): Promise<NeonDbStatus> => {
-    const res = await fetch('/api/neon/status');
+    const res = await fetch(apiUrl('/api/neon/status'));
     if (!res.ok) throw new Error('Failed to fetch Neon DB status');
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     const chatCount = data.tables?.chat_threads ?? 0;
     return {
       connected: Boolean(data.connected),
@@ -57,7 +58,7 @@ export const neonApi = {
     };
   },
   sync: async (): Promise<{ success: boolean; status: NeonDbStatus }> => {
-    const res = await fetch('/api/neon/sync', { method: 'POST' });
+    const res = await fetch(apiUrl('/api/neon/sync'), { method: 'POST' });
     if (!res.ok) throw new Error('Failed to sync Neon DB schema');
     const status = await neonApi.getStatus();
     return { success: true, status };
@@ -66,60 +67,60 @@ export const neonApi = {
 
 export const packagesApi = {
   getAll: async (): Promise<InvestmentPackage[]> => {
-    const res = await fetch('/api/packages');
+    const res = await fetch(apiUrl('/api/packages'));
     if (!res.ok) throw new Error('Failed to fetch packages');
-    return res.json();
+    return parseJsonResponse<InvestmentPackage[]>(res);
   },
   create: async (pkg: InvestmentPackage): Promise<InvestmentPackage> => {
-    const res = await fetch('/api/packages', {
+    const res = await fetch(apiUrl('/api/packages'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pkg),
     });
     if (!res.ok) throw new Error('Failed to create package');
-    return res.json();
+    return parseJsonResponse<InvestmentPackage>(res);
   },
   update: async (idOrPkg: string | InvestmentPackage, maybePkg?: InvestmentPackage): Promise<InvestmentPackage> => {
     const pkg = maybePkg || (idOrPkg as InvestmentPackage);
     const id = typeof idOrPkg === 'string' ? idOrPkg : pkg.id;
-    const res = await fetch(`/api/packages/${id}`, {
+    const res = await fetch(apiUrl(`/api/packages/${id}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pkg),
     });
     if (!res.ok) throw new Error('Failed to update package');
-    return res.json();
+    return parseJsonResponse<InvestmentPackage>(res);
   },
   delete: async (id: string): Promise<boolean> => {
-    const res = await fetch(`/api/packages/${id}`, { method: 'DELETE' });
+    const res = await fetch(apiUrl(`/api/packages/${id}`), { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete package');
     return true;
   },
   reset: async (): Promise<InvestmentPackage[]> => {
-    const res = await fetch('/api/packages/reset', { method: 'POST' });
+    const res = await fetch(apiUrl('/api/packages/reset'), { method: 'POST' });
     if (!res.ok) throw new Error('Failed to reset packages');
-    return res.json();
+    return parseJsonResponse<InvestmentPackage[]>(res);
   },
 };
 
 export const investmentsApi = {
   getAll: async (userId?: string): Promise<ActiveInvestment[]> => {
     const url = userId ? `/api/investments?userId=${userId}` : '/api/investments';
-    const res = await fetch(url);
+    const res = await fetch(apiUrl(url));
     if (!res.ok) throw new Error('Failed to fetch investments');
-    return res.json();
+    return parseJsonResponse<ActiveInvestment[]>(res);
   },
   getUserInvestments: async (userId: string): Promise<ActiveInvestment[]> => {
     return investmentsApi.getAll(userId);
   },
   create: async (userId: string, investment: ActiveInvestment, userUpdates?: Partial<UserProfile>): Promise<ActiveInvestment> => {
-    const res = await fetch('/api/investments', {
+    const res = await fetch(apiUrl('/api/investments'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, investment, userUpdates }),
     });
     if (!res.ok) throw new Error('Failed to activate investment');
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     return data.investment || data;
   },
   activate: async (params: {
@@ -135,21 +136,21 @@ export const investmentsApi = {
 export const transactionsApi = {
   getAll: async (userId?: string): Promise<Transaction[]> => {
     const url = userId ? `/api/transactions?userId=${userId}` : '/api/transactions';
-    const res = await fetch(url);
+    const res = await fetch(apiUrl(url));
     if (!res.ok) throw new Error('Failed to fetch transactions');
-    return res.json();
+    return parseJsonResponse<Transaction[]>(res);
   },
   getUserTransactions: async (userId: string): Promise<Transaction[]> => {
     return transactionsApi.getAll(userId);
   },
   create: async (userId: string, transaction: Transaction, userUpdates?: Partial<UserProfile>): Promise<Transaction> => {
-    const res = await fetch('/api/transactions', {
+    const res = await fetch(apiUrl('/api/transactions'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, transaction, userUpdates }),
     });
     if (!res.ok) throw new Error('Failed to record transaction');
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     return data.transaction || data;
   },
   record: async (params: { userId: string; transaction: Transaction; userUpdates?: Partial<UserProfile> }): Promise<Transaction> => {
@@ -160,9 +161,9 @@ export const transactionsApi = {
 export const withdrawalsApi = {
   getAll: async (userId?: string): Promise<WithdrawalRequest[]> => {
     const url = userId ? `/api/withdrawals?userId=${userId}` : '/api/withdrawals';
-    const res = await fetch(url);
+    const res = await fetch(apiUrl(url));
     if (!res.ok) throw new Error('Failed to fetch withdrawals');
-    return res.json();
+    return parseJsonResponse<WithdrawalRequest[]>(res);
   },
   create: async (params: {
     withdrawal: WithdrawalRequest;
@@ -172,16 +173,16 @@ export const withdrawalsApi = {
     return withdrawalsApi.request(params.withdrawal, params.transaction);
   },
   request: async (withdrawal: WithdrawalRequest, transaction?: Transaction): Promise<{ success: boolean; withdrawal: WithdrawalRequest }> => {
-    const res = await fetch('/api/withdrawals', {
+    const res = await fetch(apiUrl('/api/withdrawals'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ withdrawal, transaction }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to submit withdrawal');
     }
-    return res.json();
+    return parseJsonResponse<{ success: boolean; withdrawal: WithdrawalRequest }>(res);
   },
   updateStatus: async (
     id: string, 
@@ -199,7 +200,7 @@ export const withdrawalsApi = {
       body.rejectionReason = rejectionReason;
     }
 
-    const res = await fetch(`/api/withdrawals/${id}/status`, {
+    const res = await fetch(apiUrl(`/api/withdrawals/${id}/status`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -211,17 +212,17 @@ export const withdrawalsApi = {
 export const referralsApi = {
   getAll: async (userId?: string): Promise<ReferralMember[]> => {
     const url = userId ? `/api/referrals?userId=${userId}` : '/api/referrals';
-    const res = await fetch(url);
+    const res = await fetch(apiUrl(url));
     if (!res.ok) return [];
-    return res.json();
+    return parseJsonResponse<ReferralMember[]>(res);
   },
   getUserReferrals: async (userId: string): Promise<ReferralMember[]> => {
     return referralsApi.getAll(userId);
   },
   getCampaignOverview: async (userId: string): Promise<any> => {
-    const res = await fetch(`/api/referrals/campaign?userId=${userId}`);
+    const res = await fetch(apiUrl(`/api/referrals/campaign?userId=${userId}`));
     if (!res.ok) throw new Error('Failed to fetch campaign overview');
-    return res.json();
+    return parseJsonResponse(res);
   },
   saveSalaryConfig: async (params: { 
     userId: string; 
@@ -229,20 +230,20 @@ export const referralsApi = {
     destination: string; 
     accountName?: string 
   }): Promise<any> => {
-    const res = await fetch('/api/referrals/salary-config', {
+    const res = await fetch(apiUrl('/api/referrals/salary-config'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await parseJsonResponse(res).catch(() => ({}));
       throw new Error(err.error || 'Failed to save salary configuration');
     }
-    return res.json();
+    return parseJsonResponse(res);
   },
   recordReminder: async (memberId: string): Promise<boolean> => {
     try {
-      const res = await fetch('/api/referrals/remind', {
+      const res = await fetch(apiUrl('/api/referrals/remind'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ memberId }),
@@ -253,50 +254,50 @@ export const referralsApi = {
     }
   },
   processMaturedCommissions: async (): Promise<any> => {
-    const res = await fetch('/api/referrals/process-matured', {
+    const res = await fetch(apiUrl('/api/referrals/process-matured'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) throw new Error('Failed to release matured commissions');
-    return res.json();
+    return parseJsonResponse(res);
   },
   processSundaySalaries: async (force = false): Promise<any> => {
-    const res = await fetch('/api/referrals/process-sunday-salaries', {
+    const res = await fetch(apiUrl('/api/referrals/process-sunday-salaries'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ force }),
     });
     if (!res.ok) throw new Error('Failed to run Sunday salary disbursements');
-    return res.json();
+    return parseJsonResponse(res);
   },
   getPendingCommissions: async (userId?: string): Promise<any[]> => {
     const url = userId ? `/api/referrals/pending-commissions?userId=${userId}` : '/api/referrals/pending-commissions';
-    const res = await fetch(url);
+    const res = await fetch(apiUrl(url));
     if (!res.ok) return [];
-    return res.json();
+    return parseJsonResponse<any[]>(res);
   },
   getWeeklySalaryPayouts: async (userId?: string): Promise<any[]> => {
     const url = userId ? `/api/referrals/salary-payouts?userId=${userId}` : '/api/referrals/salary-payouts';
-    const res = await fetch(url);
+    const res = await fetch(apiUrl(url));
     if (!res.ok) return [];
-    return res.json();
+    return parseJsonResponse<any[]>(res);
   },
 };
 
 export const settingsApi = {
   get: async (): Promise<PlatformSettings> => {
-    const res = await fetch('/api/settings');
+    const res = await fetch(apiUrl('/api/settings'));
     if (!res.ok) throw new Error('Failed to fetch platform settings');
-    return res.json();
+    return parseJsonResponse<PlatformSettings>(res);
   },
   update: async (settings: Partial<PlatformSettings>): Promise<PlatformSettings> => {
-    const res = await fetch('/api/settings', {
+    const res = await fetch(apiUrl('/api/settings'), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     });
     if (!res.ok) throw new Error('Failed to update platform settings');
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     return data.settings || data;
   },
 };

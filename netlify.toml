@@ -1,0 +1,14 @@
+# Netlify configuration for Vite React SPA
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--include=dev"
+
+# SPA Single Page Application fallback routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
