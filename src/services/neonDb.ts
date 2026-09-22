@@ -55,12 +55,30 @@ let sqlInstance: any = null;
 let lastUsedUrl: string | null = null;
 
 export function getNeonSql() {
-  const rawDbUrl = process.env.DATABASE_URL;
+  let rawDbUrl: string | undefined = undefined;
+
+  if (typeof process !== 'undefined' && process.env) {
+    rawDbUrl = process.env.DATABASE_URL || process.env.VITE_DATABASE_URL;
+  }
+  if (!rawDbUrl) {
+    try {
+      const metaEnv = (new Function('return typeof import.meta !== "undefined" ? import.meta.env : undefined'))();
+      if (metaEnv) {
+        rawDbUrl = metaEnv.VITE_DATABASE_URL || metaEnv.DATABASE_URL;
+      }
+    } catch {}
+  }
+  if (!rawDbUrl && typeof window !== 'undefined' && window.localStorage) {
+    rawDbUrl = localStorage.getItem('neon_database_url') || localStorage.getItem('DATABASE_URL') || undefined;
+  }
+  if (!rawDbUrl) {
+    rawDbUrl = 'postgresql://neondb_owner:npg_TXm6UtSlW7Ae@ep-little-hall-b5o6vcsm-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+  }
+
   const cleanUrl = extractPostgresUrl(rawDbUrl);
 
   if (cleanUrl) {
-    // If the raw env variable had extra wrapping code/quotes, synchronize process.env.DATABASE_URL
-    if (process.env.DATABASE_URL !== cleanUrl) {
+    if (typeof process !== 'undefined' && process.env && process.env.DATABASE_URL !== cleanUrl) {
       process.env.DATABASE_URL = cleanUrl;
     }
 

@@ -4,8 +4,16 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const dbUrl = process.env.DATABASE_URL || 
+    process.env.VITE_DATABASE_URL || 
+    'postgresql://neondb_owner:npg_TXm6UtSlW7Ae@ep-little-hall-b5o6vcsm-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+
   return {
     plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.DATABASE_URL': JSON.stringify(dbUrl),
+      'process.env.VITE_DATABASE_URL': JSON.stringify(dbUrl),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
